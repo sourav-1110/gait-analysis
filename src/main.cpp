@@ -161,6 +161,8 @@ void setup() {
 
   // New CSV header with full IMU data
   Serial.println("time_ms,th_qw,th_qx,th_qy,th_qz,th_ax_g,th_ay_g,th_az_g,th_gx_dps,th_gy_dps,th_gz_dps,sh_qw,sh_qx,sh_qy,sh_qz,sh_ax_g,sh_ay_g,sh_az_g,sh_gx_dps,sh_gy_dps,sh_gz_dps,knee_deg,force_raw,stance");
+  // Also print a short human-readable label header for quick Serial Monitor reference
+  Serial.println("LABELS: knee_deg (deg) | force_raw (ADC) | stance (0/1)");
 }
 
 void loop() {
@@ -241,4 +243,10 @@ void loop() {
   // Output raw ADC value and computed stance (1/0)
   Serial.print(forceRaw); Serial.print(',');
   Serial.println(stance ? 1 : 0);
+
+  // Print a compact labeled summary line to help identify ordinates in the Serial Monitor
+  Serial.print("LABELS_VALS: ");
+  Serial.print("knee_deg="); Serial.print(kneeFlexion, 2); Serial.print(" deg, ");
+  Serial.print("force_raw="); Serial.print(forceRaw); Serial.print(", ");
+  Serial.print("stance="); Serial.println(stance ? 1 : 0);
 }
