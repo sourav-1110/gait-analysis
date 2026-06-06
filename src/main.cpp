@@ -4,7 +4,10 @@
 // --- Configuration ---
 const uint8_t MPU1_ADDR = 0x68; // above knee (thigh)
 const uint8_t MPU2_ADDR = 0x69; // above ankle (shank)
-const int FORCE_PIN = 34; // ADC1_CH6 on many ESP32 boards
+// Piezo wiring: Piezo Negative -> GND
+// Piezo Positive -> series resistor (10k-100k) -> ADC GPIO (e.g., GPIO4)
+// ADC GPIO -> 1M pull-down -> GND (bias to read spikes)
+const int FORCE_PIN = 4; // update to the GPIO you're using for the piezo
 
 const float sampleHz = 100.0;
 const unsigned long sampleIntervalUs = (unsigned long)(1000000.0 / sampleHz);
@@ -193,8 +196,21 @@ void loop() {
 
   float kneeFlexion = (atan2(ay1g, az1g) - atan2(ay2g, az2g)) * 180.0f / PI; // difference in accel-based pitch as quick estimate
 
+  // Piezo envelope-based detection
+  // ADC mid for ESP32 12-bit: ~2048. Envelope smooths impact magnitude.
+  static float envelope = 0.0f;
+  const float alpha_env = 0.05f; // smoothing factor (tune)
+  const int ADC_MID = 2048;
+  const int PIEZO_THRESHOLD = 30; // tune this threshold for your mounting
+  const int STANCE_HOLD_MS = 150; // hold time after a detected pulse
+  static unsigned long last_pulse_ms = 0;
+
   int forceRaw = analogRead(FORCE_PIN);
-  bool stance = forceRaw > 2000;
+  int delta = abs(forceRaw - ADC_MID);
+  envelope = (1.0f - alpha_env) * envelope + alpha_env * (float)delta;
+  bool detected = envelope > (float)PIEZO_THRESHOLD;
+  if (detected) last_pulse_ms = millis();
+  bool stance = (millis() - last_pulse_ms) < STANCE_HOLD_MS;
 
   unsigned long tms = millis();
   // Output CSV with quaternions, raw accel (g), raw gyro (dps), knee, force, stance
@@ -222,6 +238,7 @@ void loop() {
   Serial.print(gz2dps, 3); Serial.print(',');
 
   Serial.print(kneeFlexion, 3); Serial.print(',');
+  // Output raw ADC value and computed stance (1/0)
   Serial.print(forceRaw); Serial.print(',');
   Serial.println(stance ? 1 : 0);
 }
