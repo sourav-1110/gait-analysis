@@ -121,9 +121,32 @@ void mpuWrite(uint8_t addr, uint8_t reg, uint8_t val) {
 void mpuRead(uint8_t addr, uint8_t reg, uint8_t count, uint8_t* dest) {
   Wire.beginTransmission(addr);
   Wire.write(reg);
-  Wire.endTransmission(false);
-  Wire.requestFrom((int)addr, (int)count);
-  for (uint8_t i = 0; i < count; i++) dest[i] = Wire.read();
+  byte error = Wire.endTransmission(false);
+  if (error != 0) {
+    Serial.print("I2C Write Error: ");
+    Serial.print(error);
+    Serial.print(" at addr 0x");
+    Serial.println(addr, HEX);
+    return;
+  }
+  
+  byte received = Wire.requestFrom((int)addr, (int)count);
+  if (received != count) {
+    Serial.print("I2C Read Error: requested ");
+    Serial.print(count);
+    Serial.print(" bytes, got ");
+    Serial.print(received);
+    Serial.print(" from addr 0x");
+    Serial.println(addr, HEX);
+  }
+  
+  for (uint8_t i = 0; i < count; i++) {
+    if (Wire.available()) {
+      dest[i] = Wire.read();
+    } else {
+      dest[i] = 0;
+    }
+  }
 }
 
 void initMPU(uint8_t addr) {
@@ -171,9 +194,30 @@ void setup() {
   Serial.begin(115200);
   delay(50);
   Wire.begin();
+  Wire.setClock(100000); // 100kHz I2C speed for stability
+  delay(100);
 
+  Serial.println("\n=== I2C Device Scan ===");
+  byte count = 0;
+  for (byte i = 8; i < 120; i++) {
+    Wire.beginTransmission(i);
+    byte error = Wire.endTransmission();
+    if (error == 0) {
+      Serial.print("Found device at 0x");
+      if (i < 16) Serial.print("0");
+      Serial.println(i, HEX);
+      count++;
+    }
+  }
+  Serial.print("Total devices found: "); Serial.println(count);
+  Serial.println("Expected: 0x68 (MPU1), 0x69 (MPU2)\n");
+  delay(500);
+
+  Serial.println("Initializing MPU6050 sensors...");
   initMPU(MPU1_ADDR);
+  delay(50);
   initMPU(MPU2_ADDR);
+  delay(50);
 
   Serial.println("MPUs initialized. Calibrating gyros, keep device still...");
   calibrateGyros();
@@ -356,9 +400,36 @@ void loop() {
 
   Serial.println(swingTime, 3);
 
-  // Print a compact labeled summary line to help identify ordinates in the Serial Monitor
-  Serial.print("LABELS_VALS: ");
-  Serial.print("knee_deg="); Serial.print(kneeFlexion, 2); Serial.print(" deg, ");
-  Serial.print("force_raw="); Serial.print(forceRaw); Serial.print(", ");
-  Serial.print("stance="); Serial.println(stance ? 1 : 0);
+  // Print detailed labeled output for terminal monitoring
+  Serial.print("  [THIGH]  Q:");
+  Serial.print(filter1.q0, 3); Serial.print(",");
+  Serial.print(filter1.q1, 3); Serial.print(",");
+  Serial.print(filter1.q2, 3); Serial.print(",");
+  Serial.print(filter1.q3, 3); Serial.print("  A:");
+  Serial.print(ax1g, 2); Serial.print(",");
+  Serial.print(ay1g, 2); Serial.print(",");
+  Serial.print(az1g, 2); Serial.print("g  G:");
+  Serial.print(gx1dps, 1); Serial.print(",");
+  Serial.print(gy1dps, 1); Serial.print(",");
+  Serial.println(gz1dps, 1);
+
+  Serial.print("  [SHANK]  Q:");
+  Serial.print(filter2.q0, 3); Serial.print(",");
+  Serial.print(filter2.q1, 3); Serial.print(",");
+  Serial.print(filter2.q2, 3); Serial.print(",");
+  Serial.print(filter2.q3, 3); Serial.print("  A:");
+  Serial.print(ax2g, 2); Serial.print(",");
+  Serial.print(ay2g, 2); Serial.print(",");
+  Serial.print(az2g, 2); Serial.print("g  G:");
+  Serial.print(gx2dps, 1); Serial.print(",");
+  Serial.print(gy2dps, 1); Serial.print(",");
+  Serial.println(gz2dps, 1);
+
+  // Print a compact labeled summary line
+  Serial.print("  [GAIT]  knee="); Serial.print(kneeFlexion, 2); Serial.print("° | force="); Serial.print(forceRaw);
+  Serial.print(" | stance="); Serial.print(stance ? "YES" : "NO ");
+  Serial.print(" | stride="); Serial.print(strideLength, 3); Serial.print("m | vel="); Serial.print(walkingVelocity, 3);
+  Serial.print("m/s | cadence="); Serial.print(cadence, 1); Serial.print("spm | stance_t="); Serial.print(stanceTime, 3);
+  Serial.print("s | swing_t="); Serial.println(swingTime, 3);
+  Serial.println("---");
 }
