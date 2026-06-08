@@ -2,6 +2,26 @@
 #include <Wire.h>
 
 // --- Configuration ---
+// ===== Gait Parameters =====
+
+const float LEG_LENGTH = 0.90f;   // meters (user-specific)
+
+float strideLength = 0.0f;
+float walkingVelocity = 0.0f;
+float cadence = 0.0f;
+float strideTime = 0.0f;
+
+unsigned long lastHeelStrike = 0;
+
+// Track ankle swing
+float maxSwingAngle = -999.0f;
+float minSwingAngle = 999.0f;
+// Stance and swing time tracking
+float stanceTime = 0.0f;
+float swingTime = 0.0f;
+unsigned long stanceStart = 0;
+bool prevStance = false;
+
 const uint8_t MPU1_ADDR = 0x68; // above knee (thigh)
 const uint8_t MPU2_ADDR = 0x69; // above ankle (shank)
 // Piezo wiring: Piezo Negative -> GND
@@ -159,8 +179,23 @@ void setup() {
   calibrateGyros();
   Serial.println("Calibration done.");
 
-  // New CSV header with full IMU data
-  Serial.println("time_ms,th_qw,th_qx,th_qy,th_qz,th_ax_g,th_ay_g,th_az_g,th_gx_dps,th_gy_dps,th_gz_dps,sh_qw,sh_qx,sh_qy,sh_qz,sh_ax_g,sh_ay_g,sh_az_g,sh_gx_dps,sh_gy_dps,sh_gz_dps,knee_deg,force_raw,stance");
+  // New CSV header with full IMU data and gait parameters
+  Serial.println(
+    "time_ms,"
+    "th_qw,th_qx,th_qy,th_qz,"
+    "th_ax_g,th_ay_g,th_az_g,"
+    "th_gx_dps,th_gy_dps,th_gz_dps,"
+    "sh_qw,sh_qx,sh_qy,sh_qz,"
+    "sh_ax_g,sh_ay_g,sh_az_g,"
+    "sh_gx_dps,sh_gy_dps,sh_gz_dps,"
+    "knee_deg,"
+    "force_raw,"
+    "stance,"
+    "stride_length_m,"
+    "velocity_mps,"
+    "cadence_spm,"
+    "stance_time_s,"
+    "swing_time_s");
   // Also print a short human-readable label header for quick Serial Monitor reference
   Serial.println("LABELS: knee_deg (deg) | force_raw (ADC) | stance (0/1)");
 }
@@ -196,6 +231,16 @@ void loop() {
   filter1.update(gx1, gy1, gz1f, ax1g, ay1g, az1g, dt);
   filter2.update(gx2, gy2, gz2f, ax2g, ay2g, az2g, dt);
 
+  // Shank/ankle pitch angle
+  float ankleAngle = atan2(ay2g, az2g) * 180.0f / PI;
+
+  // Track extremes during gait cycle
+  if (ankleAngle > maxSwingAngle)
+    maxSwingAngle = ankleAngle;
+
+  if (ankleAngle < minSwingAngle)
+    minSwingAngle = ankleAngle;
+
   float kneeFlexion = (atan2(ay1g, az1g) - atan2(ay2g, az2g)) * 180.0f / PI; // difference in accel-based pitch as quick estimate
 
   // Piezo envelope-based detection
@@ -213,6 +258,62 @@ void loop() {
   bool detected = envelope > (float)PIEZO_THRESHOLD;
   if (detected) last_pulse_ms = millis();
   bool stance = (millis() - last_pulse_ms) < STANCE_HOLD_MS;
+
+  // Rising-edge detector for heel strike
+  static bool prevDetected = false;
+  bool heelStrike = detected && !prevDetected;
+  prevDetected = detected;
+
+  // Calculate stride parameters on heel strike
+  if (heelStrike)
+  {
+    unsigned long nowHS = millis();
+
+    if (lastHeelStrike != 0)
+    {
+      // Stride time (seconds)
+      strideTime = (nowHS - lastHeelStrike) / 1000.0f;
+
+      // Cadence (steps/min)
+      cadence = 60.0f / strideTime;
+
+      // Total swing angle
+      float swingRange = maxSwingAngle - minSwingAngle;
+
+      // Convert to radians
+      float theta = swingRange * PI / 180.0f;
+
+      // Pendulum stride-length estimate
+      strideLength = 2.0f * LEG_LENGTH * sin(theta / 2.0f);
+
+      // Walking speed
+      walkingVelocity = strideLength / strideTime;
+    }
+
+    lastHeelStrike = nowHS;
+
+    // Reset for next stride
+    maxSwingAngle = -999.0f;
+    minSwingAngle = 999.0f;
+  }
+
+  // Track stance and swing times
+  if (stance && !prevStance)
+  {
+    stanceStart = millis();
+  }
+
+  if (!stance && prevStance)
+  {
+    stanceTime = (millis() - stanceStart) / 1000.0f;
+  }
+
+  prevStance = stance;
+
+  if (strideTime > 0)
+  {
+    swingTime = strideTime - stanceTime;
+  }
 
   unsigned long tms = millis();
   // Output CSV with quaternions, raw accel (g), raw gyro (dps), knee, force, stance
@@ -242,7 +343,18 @@ void loop() {
   Serial.print(kneeFlexion, 3); Serial.print(',');
   // Output raw ADC value and computed stance (1/0)
   Serial.print(forceRaw); Serial.print(',');
-  Serial.println(stance ? 1 : 0);
+
+  Serial.print(stance ? 1 : 0); Serial.print(',');
+
+  Serial.print(strideLength, 3); Serial.print(',');
+
+  Serial.print(walkingVelocity, 3); Serial.print(',');
+
+  Serial.print(cadence, 1); Serial.print(',');
+
+  Serial.print(stanceTime, 3); Serial.print(',');
+
+  Serial.println(swingTime, 3);
 
   // Print a compact labeled summary line to help identify ordinates in the Serial Monitor
   Serial.print("LABELS_VALS: ");
