@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gait Analysis Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark sticky-top">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-shoe-prints"></i> Gait Analysis Dashboard
+            </span>
+            <span class="badge bg-success" id="status-badge">Connecting...</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Stats Row -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Avg Walking Velocity</h6>
+                        <h3 id="stat-velocity">-- m/s</h3>
+                        <small class="text-muted">velocity_mps</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Avg Cadence</h6>
+                        <h3 id="stat-cadence">-- steps/min</h3>
+                        <small class="text-muted">cadence_spm</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Avg Stride Length</h6>
+                        <h3 id="stat-stride">-- m</h3>
+                        <small class="text-muted">stride_length_m</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Total Records</h6>
+                        <h3 id="stat-count">-- records</h3>
+                        <small class="text-muted">in database</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-chart-line"></i> Walking Velocity Over Time
+                    </div>
+                    <div class="card-body">
+                        <canvas id="velocityChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-chart-line"></i> Cadence Over Time
+                    </div>
+                    <div class="card-body">
+                        <canvas id="cadenceChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-chart-line"></i> Stride Length Over Time
+                    </div>
+                    <div class="card-body">
+                        <canvas id="strideChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-chart-line"></i> Knee Angle Over Time
+                    </div>
+                    <div class="card-body">
+                        <canvas id="kneeChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- IMU Data -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <i class="fas fa-mobile"></i> Thigh IMU (Acceleration)
+                    </div>
+                    <div class="card-body">
+                        <canvas id="thighAccelChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <i class="fas fa-mobile"></i> Shank IMU (Acceleration)
+                    </div>
+                    <div class="card-body">
+                        <canvas id="shankAccelChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="fas fa-cogs"></i> Controls
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary" onclick="refreshData()">
+                            <i class="fas fa-sync"></i> Refresh Data
+                        </button>
+                        <button class="btn btn-info" onclick="goToDataView()">
+                            <i class="fas fa-table"></i> View Data Table
+                        </button>
+                        <button class="btn btn-success" onclick="exportData()">
+                            <i class="fas fa-download"></i> Export as CSV
+                        </button>
+                        <button class="btn btn-warning" onclick="toggleAutoRefresh()">
+                            <i class="fas fa-clock"></i> <span id="auto-refresh-text">Enable Auto Refresh</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Raw Data Display -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-dark text-white">
+                        <i class="fas fa-database"></i> Latest Reading
+                    </div>
+                    <div class="card-body">
+                        <pre id="latest-data" class="bg-light p-3 rounded">Loading...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

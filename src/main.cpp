@@ -4,9 +4,9 @@
 #include <HTTPClient.h>
 
 // --- WiFi Configuration ---
-const char* SSID       = "shahul";
-const char* PASSWORD   = "";
-const char* SERVER_IP  = "192.168.56.132";   // ← replace with your laptop's Wi-Fi IP
+const char* SSID       = "shahul";                    // ← Your WiFi network name
+const char* PASSWORD   = "";                          // ← Your WiFi password
+const char* SERVER_IP  = "172.21.31.165";            // ← Your computer's IP (auto-detected)
 const int   SERVER_PORT     = 5000;
 const char* SERVER_ENDPOINT = "/log_data_csv";
 
