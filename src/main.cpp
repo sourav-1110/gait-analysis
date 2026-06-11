@@ -6,7 +6,7 @@
 // --- WiFi Configuration ---
 const char* SSID       = "Tania";              // ← Your WiFi network name
 const char* PASSWORD   = "tanidiot";                          // ← Your WiFi password
-const char* SERVER_IP = "172.20.10.11";            // ← Your computer's IP (auto-detected)
+const char* SERVER_IP = "172.20.10.13";            // ← Your computer's IP (auto-detected)
 const int   SERVER_PORT     = 5000;
 const char* SERVER_ENDPOINT = "/log_data_csv";
 
@@ -332,7 +332,7 @@ void loop() {
   // PIEZO_THRESHOLD: raise if stance flickers on noise,
   // lower if real steps are missed. Watch env= in serial output.
   const float ALPHA_ENV       = 0.05f;
-  const int PIEZO_THRESHOLD = 8;  // ADC counts above baseline
+  const int PIEZO_THRESHOLD = 50;  // ADC counts above baseline
   const int   STANCE_HOLD_MS  = 150;  // ms to hold stance after last pulse
 
   int delta = abs(forceRaw - baselineForce);
