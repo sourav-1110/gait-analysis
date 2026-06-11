@@ -102,10 +102,22 @@ def health_check():
     """Health check endpoint"""
     status = "ok"
     mongo_status = "connected" if collection else "disconnected"
+    
+    # Get record count
+    try:
+        if collection:
+            records = collection.count_documents({})
+        else:
+            records = len(load_data_from_csv())
+    except Exception as e:
+        logger.error(f"Error getting record count: {e}")
+        records = 0
+    
     return jsonify({
         "status": status,
         "message": "Flask server is running",
-        "mongodb": mongo_status
+        "mongodb": mongo_status,
+        "records": records
     }), 200
 
 
@@ -383,6 +395,38 @@ def clear_data():
         }), 200
     except Exception as e:
         logger.error(f"Error clearing data: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/reset', methods=['POST'])
+def reset_data():
+    """Reset all data and create fresh CSV backup"""
+    try:
+        # Clear MongoDB collection
+        if collection:
+            result = collection.delete_many({})
+            logger.info(f"Cleared {result.deleted_count} records from MongoDB")
+        
+        # Create fresh CSV backup
+        csv_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f"backup_reset_{csv_timestamp}.csv"
+        backup_path = os.path.join(app.config['CSV_OUTPUT_DIR'], backup_filename)
+        
+        # Write CSV header
+        with open(backup_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(CSV_HEADER)
+        
+        logger.info(f"Created fresh CSV: {backup_filename}")
+        
+        return jsonify({
+            "status": "ok",
+            "new_file": backup_filename,
+            "message": "Data reset complete",
+            "backup": backup_path
+        }), 200
+    except Exception as e:
+        logger.error(f"Error resetting data: {e}")
         return jsonify({"error": str(e)}), 500
 
 

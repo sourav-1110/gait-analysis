@@ -46,27 +46,27 @@ function populateTable() {
         
         // Calculate accelerations
         const thighAccel = Math.sqrt(
-            record.th_ax_g ** 2 + 
-            record.th_ay_g ** 2 + 
-            record.th_az_g ** 2
+            (record.th_ax_g ?? 0) ** 2 + 
+            (record.th_ay_g ?? 0) ** 2 + 
+            (record.th_az_g ?? 0) ** 2
         ).toFixed(2);
         
         const shankAccel = Math.sqrt(
-            record.sh_ax_g ** 2 + 
-            record.sh_ay_g ** 2 + 
-            record.sh_az_g ** 2
+            (record.sh_ax_g ?? 0) ** 2 + 
+            (record.sh_ay_g ?? 0) ** 2 + 
+            (record.sh_az_g ?? 0) ** 2
         ).toFixed(2);
         
         const receivedAt = record.received_at ? new Date(record.received_at).toLocaleString() : '-';
         const stanceText = record.stance ? '✓ Yes' : '✗ No';
         
         row.innerHTML = `
-            <td>${record.time_ms}</td>
-            <td><strong>${record.velocity_mps.toFixed(2)}</strong></td>
-            <td>${record.cadence_spm.toFixed(1)}</td>
-            <td>${record.stride_length_m.toFixed(3)}</td>
-            <td>${record.knee_deg.toFixed(1)}</td>
-            <td>${record.force_raw}</td>
+            <td>${record.time_ms || 0}</td>
+            <td><strong>${(record.velocity_mps ?? 0).toFixed(2)}</strong></td>
+            <td>${(record.cadence_spm ?? 0).toFixed(1)}</td>
+            <td>${(record.stride_length_m ?? 0).toFixed(3)}</td>
+            <td>${(record.knee_deg ?? 0).toFixed(1)}</td>
+            <td>${record.force_raw || 0}</td>
             <td>${stanceText}</td>
             <td>${thighAccel} g</td>
             <td>${shankAccel} g</td>

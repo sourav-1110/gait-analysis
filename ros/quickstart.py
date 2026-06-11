@@ -97,7 +97,7 @@ def start_server():
     print_header("Starting Flask Server")
     
     try:
-        from app import app, db, collection
+        from app import app
         
         print(f"Server configuration:")
         print(f"  Host: {app.config['HOST']}")
